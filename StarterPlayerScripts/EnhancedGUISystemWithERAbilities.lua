@@ -1,6 +1,6 @@
--- FixedGUISystem.lua
+-- EnhancedGUISystemWithERAbilities.lua
 -- LocalScript en StarterPlayerScripts
--- Versión corregida sin errores
+-- GUI actualizada con habilidades E y R
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -9,7 +9,7 @@ local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 
-print("🎨 Iniciando GUI system corregido...")
+print("🎨 Iniciando Enhanced GUI System con habilidades E & R...")
 
 -- Esperar remotes
 wait(2)
@@ -22,9 +22,11 @@ end
 local basicAttackRemote = remotes:FindFirstChild("BasicAttack")
 local kiBlastRemote = remotes:FindFirstChild("KiBlast")
 local meditationRemote = remotes:FindFirstChild("Meditation")
+local eAbilityRemote = remotes:FindFirstChild("EAbility")
+local rAbilityRemote = remotes:FindFirstChild("RAbility")
 
 if not basicAttackRemote or not kiBlastRemote or not meditationRemote then
-	warn("❌ Algunos RemoteEvents no encontrados")
+	warn("❌ Algunos RemoteEvents básicos no encontrados")
 	return
 end
 
@@ -34,6 +36,8 @@ print("✅ RemoteEvents conectados")
 local clientState = {
 	lastBasicAttack = 0,
 	lastKiBlast = 0,
+	lastEAbility = 0,
+	lastRAbility = 0,
 	isMeditating = false,
 	isRunning = false,
 	canDoubleJump = false,
@@ -44,6 +48,8 @@ local clientState = {
 local COOLDOWNS = {
 	BasicAttack = 0.8,
 	KiBlast = 2,
+	EAbility = 8,
+	RAbility = 15,
 	Meditation = 1
 }
 
@@ -54,6 +60,7 @@ local abilitiesFrame
 local kiBar, kiBarText
 local levelBar, levelBarText
 local stylePanel
+local abilityButtons = {}
 
 -- Función para crear la GUI principal
 local function createMainGUI()
@@ -62,10 +69,10 @@ local function createMainGUI()
 	screenGui.ResetOnSpawn = false
 	screenGui.Parent = player.PlayerGui
 
-	-- Frame principal de stats
+	-- Frame principal de stats (más grande para mostrar más info)
 	statsFrame = Instance.new("Frame")
 	statsFrame.Name = "StatsFrame"
-	statsFrame.Size = UDim2.new(0, 300, 0, 200)
+	statsFrame.Size = UDim2.new(0, 320, 0, 240)
 	statsFrame.Position = UDim2.new(0, 20, 0, 20)
 	statsFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.2)
 	statsFrame.BackgroundTransparency = 0.2
@@ -90,7 +97,7 @@ local function createMainGUI()
 	statsTitle.Size = UDim2.new(1, 0, 0, 35)
 	statsTitle.Position = UDim2.new(0, 0, 0, 0)
 	statsTitle.BackgroundTransparency = 1
-	statsTitle.Text = "⚔️ MARTIAL ARTIST ⚔️"
+	statsTitle.Text = "⚔️ MARTIAL LEGENDS ⚔️"
 	statsTitle.TextColor3 = Color3.new(1, 1, 1)
 	statsTitle.TextScaled = true
 	statsTitle.Font = Enum.Font.SourceSansBold
@@ -103,7 +110,7 @@ end
 local function createStylePanel()
 	stylePanel = Instance.new("Frame")
 	stylePanel.Name = "StylePanel"
-	stylePanel.Size = UDim2.new(1, -20, 0, 40)
+	stylePanel.Size = UDim2.new(1, -20, 0, 45)
 	stylePanel.Position = UDim2.new(0, 10, 0, 45)
 	stylePanel.BackgroundColor3 = Color3.new(0.2, 0.15, 0.3)
 	stylePanel.BorderSizePixel = 0
@@ -132,7 +139,7 @@ end
 local function createProgressBar(parent, name, position, color1, color2, labelText)
 	local barFrame = Instance.new("Frame")
 	barFrame.Name = name .. "Frame"
-	barFrame.Size = UDim2.new(1, -20, 0, 25)
+	barFrame.Size = UDim2.new(1, -20, 0, 28)
 	barFrame.Position = position
 	barFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
 	barFrame.BorderSizePixel = 0
@@ -155,7 +162,7 @@ local function createProgressBar(parent, name, position, color1, color2, labelTe
 	progressCorner.CornerRadius = UDim.new(0, 6)
 	progressCorner.Parent = progressBar
 
-	-- Gradiente CORREGIDO
+	-- Gradiente
 	local barGradient = Instance.new("UIGradient")
 	barGradient.Color = ColorSequence.new(color1, color2)
 	barGradient.Parent = progressBar
@@ -176,12 +183,12 @@ local function createProgressBar(parent, name, position, color1, color2, labelTe
 	return progressBar, barText
 end
 
--- Función para crear frame de habilidades
+-- Función para crear frame de habilidades (más grande)
 local function createAbilitiesFrame()
 	abilitiesFrame = Instance.new("Frame")
 	abilitiesFrame.Name = "AbilitiesFrame"
-	abilitiesFrame.Size = UDim2.new(0, 320, 0, 80)
-	abilitiesFrame.Position = UDim2.new(0, 20, 0, 240)
+	abilitiesFrame.Size = UDim2.new(0, 420, 0, 120)
+	abilitiesFrame.Position = UDim2.new(0, 20, 0, 280)
 	abilitiesFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.2)
 	abilitiesFrame.BackgroundTransparency = 0.2
 	abilitiesFrame.BorderSizePixel = 0
@@ -203,7 +210,7 @@ local function createAbilitiesFrame()
 	title.Size = UDim2.new(1, 0, 0, 25)
 	title.Position = UDim2.new(0, 0, 0, 5)
 	title.BackgroundTransparency = 1
-	title.Text = "⚡ ABILITIES"
+	title.Text = "⚡ COMBAT ABILITIES"
 	title.TextColor3 = Color3.new(1, 0.8, 0.4)
 	title.TextScaled = true
 	title.Font = Enum.Font.SourceSansBold
@@ -212,19 +219,21 @@ local function createAbilitiesFrame()
 	return abilitiesFrame
 end
 
--- Función para crear botones de habilidades
+-- Función para crear botones de habilidades mejorados
 local function createAbilityButtons()
 	local buttonData = {
-		{name = "Attack", key = "LMB", pos = UDim2.new(0, 10, 0, 35), color = Color3.new(0.8, 0.3, 0.3)},
-		{name = "Ki Blast", key = "Q", pos = UDim2.new(0, 80, 0, 35), color = Color3.new(0.3, 0.5, 0.8)},
-		{name = "Meditate", key = "M", pos = UDim2.new(0, 150, 0, 35), color = Color3.new(0.3, 0.8, 0.3)},
-		{name = "Run", key = "Shift", pos = UDim2.new(0, 220, 0, 35), color = Color3.new(0.8, 0.6, 0.2)}
+		{name = "Attack", key = "LMB", pos = UDim2.new(0, 10, 0, 35), color = Color3.new(0.8, 0.3, 0.3), cooldown = "BasicAttack"},
+		{name = "Ki Blast", key = "Q", pos = UDim2.new(0, 90, 0, 35), color = Color3.new(0.3, 0.5, 0.8), cooldown = "KiBlast"},
+		{name = "E Ability", key = "E", pos = UDim2.new(0, 170, 0, 35), color = Color3.new(0.6, 0.3, 0.8), cooldown = "EAbility", requiresLevel = 10},
+		{name = "R Ability", key = "R", pos = UDim2.new(0, 250, 0, 35), color = Color3.new(0.8, 0.2, 0.5), cooldown = "RAbility", requiresLevel = 25},
+		{name = "Meditate", key = "M", pos = UDim2.new(0, 330, 0, 35), color = Color3.new(0.3, 0.8, 0.3), cooldown = "Meditation"},
+		{name = "Run", key = "Shift", pos = UDim2.new(0, 10, 0, 75), color = Color3.new(0.8, 0.6, 0.2), isToggle = true}
 	}
 
 	for _, data in pairs(buttonData) do
 		local button = Instance.new("Frame")
 		button.Name = data.name .. "Button"
-		button.Size = UDim2.new(0, 60, 0, 35)
+		button.Size = UDim2.new(0, 75, 0, 35)
 		button.Position = data.pos
 		button.BackgroundColor3 = data.color
 		button.BorderSizePixel = 0
@@ -236,7 +245,8 @@ local function createAbilityButtons()
 
 		-- Tecla
 		local keyLabel = Instance.new("TextLabel")
-		keyLabel.Size = UDim2.new(1, 0, 0, 15)
+		keyLabel.Name = "KeyLabel"
+		keyLabel.Size = UDim2.new(1, 0, 0, 12)
 		keyLabel.Position = UDim2.new(0, 0, 0, 2)
 		keyLabel.BackgroundTransparency = 1
 		keyLabel.Text = data.key
@@ -247,15 +257,100 @@ local function createAbilityButtons()
 
 		-- Nombre
 		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size = UDim2.new(1, 0, 0, 15)
-		nameLabel.Position = UDim2.new(0, 0, 1, -17)
+		nameLabel.Name = "NameLabel"
+		nameLabel.Size = UDim2.new(1, 0, 0, 12)
+		nameLabel.Position = UDim2.new(0, 0, 1, -14)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.Text = data.name
 		nameLabel.TextColor3 = Color3.new(1, 1, 1)
 		nameLabel.TextScaled = true
 		nameLabel.Font = Enum.Font.SourceSans
 		nameLabel.Parent = button
+
+		-- Cooldown overlay
+		if data.cooldown then
+			local cooldownOverlay = Instance.new("Frame")
+			cooldownOverlay.Name = "CooldownOverlay"
+			cooldownOverlay.Size = UDim2.new(1, 0, 1, 0)
+			cooldownOverlay.Position = UDim2.new(0, 0, 0, 0)
+			cooldownOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
+			cooldownOverlay.BackgroundTransparency = 0.7
+			cooldownOverlay.BorderSizePixel = 0
+			cooldownOverlay.Visible = false
+			cooldownOverlay.Parent = button
+
+			local cooldownCorner = Instance.new("UICorner")
+			cooldownCorner.CornerRadius = UDim.new(0, 8)
+			cooldownCorner.Parent = cooldownOverlay
+
+			local cooldownText = Instance.new("TextLabel")
+			cooldownText.Name = "CooldownText"
+			cooldownText.Size = UDim2.new(1, 0, 1, 0)
+			cooldownText.BackgroundTransparency = 1
+			cooldownText.Text = "0"
+			cooldownText.TextColor3 = Color3.new(1, 1, 1)
+			cooldownText.TextScaled = true
+			cooldownText.Font = Enum.Font.SourceSansBold
+			cooldownText.Parent = cooldownOverlay
+		end
+
+		-- Lock overlay para habilidades que requieren nivel
+		if data.requiresLevel then
+			local lockOverlay = Instance.new("Frame")
+			lockOverlay.Name = "LockOverlay"
+			lockOverlay.Size = UDim2.new(1, 0, 1, 0)
+			lockOverlay.Position = UDim2.new(0, 0, 0, 0)
+			lockOverlay.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+			lockOverlay.BackgroundTransparency = 0.3
+			lockOverlay.BorderSizePixel = 0
+			lockOverlay.Parent = button
+
+			local lockCorner = Instance.new("UICorner")
+			lockCorner.CornerRadius = UDim.new(0, 8)
+			lockCorner.Parent = lockOverlay
+
+			local lockText = Instance.new("TextLabel")
+			lockText.Name = "LockText"
+			lockText.Size = UDim2.new(1, 0, 1, 0)
+			lockText.BackgroundTransparency = 1
+			lockText.Text = "🔒\nLv." .. data.requiresLevel
+			lockText.TextColor3 = Color3.new(1, 1, 1)
+			lockText.TextScaled = true
+			lockText.Font = Enum.Font.SourceSansBold
+			lockText.Parent = lockOverlay
+		end
+
+		abilityButtons[data.cooldown or data.name] = button
 	end
+end
+
+-- Función para crear panel de información del estilo
+local function createStyleInfoPanel()
+	local infoPanel = Instance.new("Frame")
+	infoPanel.Name = "StyleInfoPanel"
+	infoPanel.Size = UDim2.new(1, -20, 0, 40)
+	infoPanel.Position = UDim2.new(0, 10, 0, 195)
+	infoPanel.BackgroundColor3 = Color3.new(0.15, 0.15, 0.25)
+	infoPanel.BorderSizePixel = 0
+	infoPanel.Parent = statsFrame
+
+	local infoCorner = Instance.new("UICorner")
+	infoCorner.CornerRadius = UDim.new(0, 8)
+	infoCorner.Parent = infoPanel
+
+	local infoText = Instance.new("TextLabel")
+	infoText.Name = "InfoText"
+	infoText.Size = UDim2.new(1, -10, 1, 0)
+	infoText.Position = UDim2.new(0, 5, 0, 0)
+	infoText.BackgroundTransparency = 1
+	infoText.Text = "E: Lv.10+ | R: Lv.25+ | Meditate to gain XP & Ki"
+	infoText.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+	infoText.TextScaled = true
+	infoText.Font = Enum.Font.SourceSans
+	infoText.TextXAlignment = Enum.TextXAlignment.Left
+	infoText.Parent = infoPanel
+
+	return infoPanel
 end
 
 -- Función para animar barra
@@ -269,37 +364,83 @@ local function animateBar(bar, targetValue, maxValue)
 	tween:Play()
 end
 
+-- Función para mostrar cooldown en botón
+local function showCooldown(buttonName, duration)
+	local button = abilityButtons[buttonName]
+	if not button then return end
+
+	local overlay = button:FindFirstChild("CooldownOverlay")
+	local cooldownText = overlay and overlay:FindFirstChild("CooldownText")
+
+	if overlay and cooldownText then
+		overlay.Visible = true
+
+		spawn(function()
+			local remaining = duration
+			while remaining > 0 do
+				cooldownText.Text = string.format("%.1f", remaining)
+				wait(0.1)
+				remaining = remaining - 0.1
+			end
+
+			overlay.Visible = false
+		end)
+	end
+end
+
+-- Función para actualizar locks de habilidades
+local function updateAbilityLocks(level)
+	-- Habilidad E
+	local eButton = abilityButtons["EAbility"]
+	if eButton then
+		local lockOverlay = eButton:FindFirstChild("LockOverlay")
+		if lockOverlay then
+			lockOverlay.Visible = level < 10
+		end
+	end
+
+	-- Habilidad R
+	local rButton = abilityButtons["RAbility"]
+	if rButton then
+		local lockOverlay = rButton:FindFirstChild("LockOverlay")
+		if lockOverlay then
+			lockOverlay.Visible = level < 25
+		end
+	end
+end
+
 -- Función para crear toda la GUI
 local function setupCompleteGUI()
 	createMainGUI()
 	createStylePanel()
 
-	-- Crear barras de progreso (COLORES CORREGIDOS)
+	-- Crear barras de progreso
 	kiBar, kiBarText = createProgressBar(
 		statsFrame, "Ki", 
-		UDim2.new(0, 10, 0, 95),
-		Color3.new(0, 0.8, 1),    -- Color1
-		Color3.new(0.5, 1, 1),    -- Color2
+		UDim2.new(0, 10, 0, 100),
+		Color3.new(0, 0.8, 1),
+		Color3.new(0.5, 1, 1),
 		"Ki: 100/100"
 	)
 
 	levelBar, levelBarText = createProgressBar(
 		statsFrame, "Level",
-		UDim2.new(0, 10, 0, 130),
-		Color3.new(1, 0.8, 0),    -- Color1
-		Color3.new(1, 1, 0.5),    -- Color2
+		UDim2.new(0, 10, 0, 140),
+		Color3.new(1, 0.8, 0),
+		Color3.new(1, 1, 0.5),
 		"Level: 1 (0/100)"
 	)
 
+	createStyleInfoPanel()
 	createAbilitiesFrame()
 	createAbilityButtons()
 
-	print("✅ GUI creada exitosamente")
+	print("✅ Enhanced GUI creada exitosamente")
 end
 
 -- Variables para stats anteriores
 local lastStats = {
-	ki = 0, maxKi = 100, level = 1, xp = 0, maxXp = 100, style = ""
+	ki = 0, maxKi = 100, level = 1, xp = 0, maxXp = 100, style = "", fuerza = 5, velocidad = 5, control = 5
 }
 
 -- Función para actualizar la GUI
@@ -319,7 +460,7 @@ local function updateGUI()
 
 		if currentKi ~= lastStats.ki or maxKiValue ~= lastStats.maxKi then
 			animateBar(kiBar, currentKi, maxKiValue)
-			kiBarText.Text = "⚡ Ki: " .. currentKi .. "/" .. maxKiValue
+			kiBarText.Text = "⚡ Ki: " .. math.floor(currentKi) .. "/" .. maxKiValue
 
 			-- Cambiar color según nivel de Ki
 			if currentKi < maxKiValue * 0.3 then
@@ -348,8 +489,8 @@ local function updateGUI()
 		if currentLevel ~= lastStats.level then
 			-- Efecto de level up
 			local levelUpEffect = Instance.new("Frame")
-			levelUpEffect.Size = UDim2.new(0, 200, 0, 60)
-			levelUpEffect.Position = UDim2.new(0.5, -100, 0.3, 0)
+			levelUpEffect.Size = UDim2.new(0, 250, 0, 80)
+			levelUpEffect.Position = UDim2.new(0.5, -125, 0.3, 0)
 			levelUpEffect.BackgroundColor3 = Color3.new(1, 1, 0)
 			levelUpEffect.BorderSizePixel = 0
 			levelUpEffect.Parent = screenGui
@@ -361,19 +502,23 @@ local function updateGUI()
 			local levelUpText = Instance.new("TextLabel")
 			levelUpText.Size = UDim2.new(1, 0, 1, 0)
 			levelUpText.BackgroundTransparency = 1
-			levelUpText.Text = "🌟 LEVEL UP! 🌟"
+			levelUpText.Text = "🌟 LEVEL UP! 🌟\nLevel " .. currentLevel .. " Reached!"
 			levelUpText.TextColor3 = Color3.new(0, 0, 0)
 			levelUpText.TextScaled = true
 			levelUpText.Font = Enum.Font.SourceSansBold
 			levelUpText.Parent = levelUpEffect
 
-			game:GetService("Debris"):AddItem(levelUpEffect, 3)
+			game:GetService("Debris"):AddItem(levelUpEffect, 4)
+
+			-- Actualizar locks de habilidades
+			updateAbilityLocks(currentLevel)
+
 			lastStats.level = currentLevel
 		end
 
 		if currentXp ~= lastStats.xp or maxXpValue ~= lastStats.maxXp then
 			animateBar(levelBar, currentXp, maxXpValue)
-			levelBarText.Text = "📊 Lv." .. currentLevel .. " (" .. currentXp .. "/" .. maxXpValue .. ")"
+			levelBarText.Text = "📊 Lv." .. currentLevel .. " (" .. math.floor(currentXp) .. "/" .. maxXpValue .. ")"
 			lastStats.xp = currentXp
 			lastStats.maxXp = maxXpValue
 		end
@@ -382,12 +527,27 @@ local function updateGUI()
 	-- Actualizar estilo marcial
 	local martialStyle = stats:FindFirstChild("MartialStyle")
 	local styleRarity = stats:FindFirstChild("StyleRarity")
+	local fuerza = stats:FindFirstChild("Fuerza")
+	local velocidad = stats:FindFirstChild("Velocidad")
+	local control = stats:FindFirstChild("Control")
 
 	if martialStyle and stylePanel then
 		local styleText = stylePanel:FindFirstChild("StyleText")
 		if styleText and martialStyle.Value ~= lastStats.style then
 			local rarityText = styleRarity and styleRarity.Value or "Common"
-			styleText.Text = "🥋 " .. martialStyle.Value .. " (" .. rarityText .. ")"
+			local rarityEmoji = ""
+
+			if rarityText == "Mythic" then
+				rarityEmoji = "🌟✨"
+			elseif rarityText == "Legendary" then
+				rarityEmoji = "✨"
+			elseif rarityText == "Epic" then
+				rarityEmoji = "💎"
+			elseif rarityText == "Rare" then
+				rarityEmoji = "⭐"
+			end
+
+			styleText.Text = "🥋 " .. martialStyle.Value .. " " .. rarityEmoji .. " (" .. rarityText .. ")"
 
 			-- Colores según estilo
 			local styleColors = {
@@ -395,11 +555,31 @@ local function updateGUI()
 				CRANE = Color3.new(0.8, 0.8, 1),
 				DRAGON = Color3.new(1, 0.8, 0),
 				PHOENIX = Color3.new(1, 1, 0),
-				VOID = Color3.new(0.5, 0, 1)
+				LIGHTNING = Color3.new(1, 1, 1),
+				SHADOW = Color3.new(0.5, 0.5, 0.5),
+				VOID = Color3.new(0.5, 0, 1),
+				CELESTIAL = Color3.new(0, 1, 1),
+				CHAOS = Color3.new(1, 0, 1)
 			}
 
 			styleText.TextColor3 = styleColors[martialStyle.Value] or Color3.new(1, 1, 1)
 			lastStats.style = martialStyle.Value
+		end
+	end
+
+	-- Actualizar información del estilo en panel de info
+	if fuerza and velocidad and control then
+		local infoPanel = statsFrame:FindFirstChild("StyleInfoPanel")
+		if infoPanel then
+			local infoText = infoPanel:FindFirstChild("InfoText")
+			if infoText and (fuerza.Value ~= lastStats.fuerza or velocidad.Value ~= lastStats.velocidad or control.Value ~= lastStats.control) then
+				infoText.Text = string.format("F:%d V:%d C:%d | E: Lv.10+ | R: Lv.25+", 
+					fuerza.Value, velocidad.Value, control.Value)
+
+				lastStats.fuerza = fuerza.Value
+				lastStats.velocidad = velocidad.Value
+				lastStats.control = control.Value
+			end
 		end
 	end
 end
@@ -482,15 +662,44 @@ local function handleInput(input, gameProcessed)
 		-- Ki Blast
 		local currentTime = tick()
 		if currentTime - clientState.lastKiBlast >= COOLDOWNS.KiBlast then
-			kiBlastRemote:FireServer()
-			clientState.lastKiBlast = currentTime
-			print("⚡ Ki Blast!")
+			if kiBlastRemote then
+				kiBlastRemote:FireServer()
+				clientState.lastKiBlast = currentTime
+				showCooldown("KiBlast", COOLDOWNS.KiBlast)
+				print("⚡ Ki Blast!")
+			end
+		end
+
+	elseif input.KeyCode == Enum.KeyCode.E then
+		-- Habilidad E
+		local currentTime = tick()
+		if currentTime - clientState.lastEAbility >= COOLDOWNS.EAbility then
+			if eAbilityRemote then
+				eAbilityRemote:FireServer()
+				clientState.lastEAbility = currentTime
+				showCooldown("EAbility", COOLDOWNS.EAbility)
+				print("🔥 E Ability!")
+			end
+		end
+
+	elseif input.KeyCode == Enum.KeyCode.R then
+		-- Habilidad R
+		local currentTime = tick()
+		if currentTime - clientState.lastRAbility >= COOLDOWNS.RAbility then
+			if rAbilityRemote then
+				rAbilityRemote:FireServer()
+				clientState.lastRAbility = currentTime
+				showCooldown("RAbility", COOLDOWNS.RAbility)
+				print("💥 R Ability!")
+			end
 		end
 
 	elseif input.KeyCode == Enum.KeyCode.M then
 		-- Meditación
 		clientState.isMeditating = not clientState.isMeditating
-		meditationRemote:FireServer(clientState.isMeditating)
+		if meditationRemote then
+			meditationRemote:FireServer(clientState.isMeditating)
+		end
 
 		if clientState.isMeditating then
 			print("🧘 Meditating...")
@@ -531,9 +740,12 @@ local function handleMouseClick()
 
 	local currentTime = tick()
 	if currentTime - clientState.lastBasicAttack >= COOLDOWNS.BasicAttack then
-		basicAttackRemote:FireServer()
-		clientState.lastBasicAttack = currentTime
-		print("👊 Basic Attack!")
+		if basicAttackRemote then
+			basicAttackRemote:FireServer()
+			clientState.lastBasicAttack = currentTime
+			showCooldown("BasicAttack", COOLDOWNS.BasicAttack)
+			print("👊 Basic Attack!")
+		end
 	end
 end
 
@@ -551,8 +763,8 @@ local function onCharacterAdded(character)
 		wait(1)
 		if screenGui and screenGui.Parent then
 			local welcome = Instance.new("Frame")
-			welcome.Size = UDim2.new(0, 300, 0, 80)
-			welcome.Position = UDim2.new(0.5, -150, 0.7, 0)
+			welcome.Size = UDim2.new(0, 350, 0, 100)
+			welcome.Position = UDim2.new(0.5, -175, 0.7, 0)
 			welcome.BackgroundColor3 = Color3.new(0.1, 0.1, 0.2)
 			welcome.BorderSizePixel = 0
 			welcome.Parent = screenGui
@@ -564,13 +776,13 @@ local function onCharacterAdded(character)
 			local welcomeText = Instance.new("TextLabel")
 			welcomeText.Size = UDim2.new(1, 0, 1, 0)
 			welcomeText.BackgroundTransparency = 1
-			welcomeText.Text = "🥋 Ready for combat! 🥋\nControls: LMB, Q, M, Shift, Space x2"
+			welcomeText.Text = "🥋 Welcome to Martial Arts Legends! 🥋\nControls: LMB, Q, E (Lv.10+), R (Lv.25+), M, Shift, Space x2"
 			welcomeText.TextColor3 = Color3.new(1, 1, 1)
 			welcomeText.TextScaled = true
 			welcomeText.Font = Enum.Font.SourceSansBold
 			welcomeText.Parent = welcome
 
-			game:GetService("Debris"):AddItem(welcome, 5)
+			game:GetService("Debris"):AddItem(welcome, 6)
 		end
 	end)
 end
@@ -604,10 +816,18 @@ spawn(function()
 	end
 end)
 
-print("✅ Sistema de GUI corregido cargado!")
-print("🎮 Controles:")
+print("✅ Enhanced GUI System con habilidades E & R cargado!")
+print("🎮 Controles actualizados:")
 print("   👊 LMB - Ataque básico")
 print("   ⚡ Q - Ki Blast")
+print("   🔥 E - Habilidad especial (Nivel 10+)")
+print("   💥 R - Habilidad definitiva (Nivel 25+)")
 print("   🧘 M - Meditación")
 print("   🏃 Shift - Correr")
 print("   🦘 Space x2 - Doble salto")
+print("🎯 Nuevas características:")
+print("   ✅ Cooldowns visuales en botones")
+print("   ✅ Locks para habilidades por nivel")
+print("   ✅ Stats expandidos mostrados")
+print("   ✅ Efectos de level up mejorados")
+print("   ✅ Panel de información del estilo")
